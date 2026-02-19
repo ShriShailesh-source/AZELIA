@@ -13,82 +13,82 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-      background: #e8f0fe;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      padding: 60px 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; /* Use system fonts for a native feel */
+      background: #e8f0fe; /* Light blue page background */
+      min-height: 100vh; /* Make the body at least the viewport height */
+      display: flex; /* Enable flex layout for centering */
+      justify-content: center; /* Center the card horizontally */
+      padding: 60px 16px; /* Add breathing room around the card */
     }
 
     .card {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 500px;
-      padding: 36px;
-      height: fit-content;
+      background: white; /* Card surface color */
+      border-radius: 16px; /* Rounded corners */
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Soft elevation */
+      width: 100%; /* Fill available width */
+      max-width: 500px; /* Keep the card from getting too wide */
+      padding: 36px; /* Inner spacing */
+      height: fit-content; /* Shrink-wrap to content height */
     }
 
     h1 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1D1D1F;
+      font-size: 28px; /* Title size */
+      font-weight: 700; /* Bold weight */
+      color: #1D1D1F; /* Dark text */
     }
 
-    h1 span { color: #007AFF; }
+    h1 span { color: #007AFF; } /* Accent dot color */
 
     .subtitle {
-      font-size: 14px;
-      color: #6E6E73;
-      margin-top: 2px;
-      margin-bottom: 24px;
+      font-size: 14px; /* Small supporting text */
+      color: #6E6E73; /* Muted gray */
+      margin-top: 2px; /* Tight spacing under title */
+      margin-bottom: 24px; /* Space before inputs */
     }
 
     /* Input */
     .input-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 20px;
+      display: flex; /* Align input and button in a row */
+      gap: 8px; /* Space between input and button */
+      margin-bottom: 20px; /* Space below input row */
     }
 
     .input-row input {
-      flex: 1;
-      padding: 11px 14px;
-      border: 1.5px solid #E5E5EA;
-      border-radius: 10px;
-      font-size: 15px;
-      background: #F5F5F7;
-      outline: none;
+      flex: 1; /* Let input take remaining width */
+      padding: 11px 14px; /* Comfortable typing area */
+      border: 1.5px solid #E5E5EA; /* Subtle border */
+      border-radius: 10px; /* Rounded input */
+      font-size: 15px; /* Readable text size */
+      background: #F5F5F7; /* Light field background */
+      outline: none; /* Remove default focus outline */
     }
 
     .input-row input:focus {
-      border-color: #007AFF;
-      background: white;
+      border-color: #007AFF; /* Highlight on focus */
+      background: white; /* Lift background on focus */
     }
 
-    .input-row input::placeholder { color: #AEAEB2; }
+    .input-row input::placeholder { color: #AEAEB2; } /* Lighter placeholder text */
 
     .btn-add {
-      padding: 11px 20px;
-      background: #007AFF;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
+      padding: 11px 20px; /* Button size */
+      background: #007AFF; /* Primary blue */
+      color: white; /* Button text color */
+      border: none; /* Remove default border */
+      border-radius: 10px; /* Rounded button */
+      font-size: 15px; /* Match input text size */
+      font-weight: 600; /* Semi-bold label */
+      cursor: pointer; /* Pointer cursor on hover */
     }
 
-    .btn-add:hover { background: #0066D6; }
+    .btn-add:hover { background: #0066D6; } /* Darker on hover */
 
     /* Task list */
     .task-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      list-style: none; /* Remove bullets */
+      display: flex; /* Stack items with gap control */
+      flex-direction: column; /* Vertical list */
+      gap: 8px; /* Space between tasks */
     }
 
     .task-item {
@@ -232,35 +232,35 @@
     }
 
     function toggleTask(id) {
-      for (let i = 0; i < tasks.length; i++) {
+      for (let i = 0; i < tasks.length; i++) { // Find matching task by id
         if (tasks[i].id === id) {
-          tasks[i].done = !tasks[i].done;
+          tasks[i].done = !tasks[i].done; // Toggle completed state
         }
       }
-      render();
+      render(); // Repaint list and stats
     }
 
     function deleteTask(id) {
-      tasks = tasks.filter(function(t) { return t.id !== id; });
-      render();
+      tasks = tasks.filter(function(t) { return t.id !== id; }); // Remove task by id
+      render(); // Repaint list and stats
     }
 
     function render() {
-      const list = document.getElementById('taskList');
-      list.innerHTML = '';
+      const list = document.getElementById('taskList'); // Target list container
+      list.innerHTML = ''; // Clear existing items
 
       if (tasks.length === 0) {
-        list.innerHTML = '<div class="empty">No tasks yet. Add one above!</div>';
+        list.innerHTML = '<div class="empty">No tasks yet. Add one above!</div>'; // Empty state
       } else {
-        for (let i = 0; i < tasks.length; i++) {
-          const task = tasks[i];
-          const li = document.createElement('li');
-          li.className = task.done ? 'task-item done' : 'task-item';
+        for (let i = 0; i < tasks.length; i++) { // Build each task row
+          const task = tasks[i]; // Current task
+          const li = document.createElement('li'); // Create list item
+          li.className = task.done ? 'task-item done' : 'task-item'; // Done styling
           li.innerHTML =
             '<input type="checkbox" ' + (task.done ? 'checked' : '') + ' onchange="toggleTask(' + task.id + ')">' +
             '<span class="task-text">' + task.text + '</span>' +
-            '<button class="btn-delete" onclick="deleteTask(' + task.id + ')">✕</button>';
-          list.appendChild(li);
+            '<button class="btn-delete" onclick="deleteTask(' + task.id + ')">✕</button>'; // Delete action
+          list.appendChild(li); // Add to DOM
         }
       }
 
