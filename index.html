@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Azelia – Task Manager</title>
+  <style>
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      background: #e8f0fe;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 60px 16px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 500px;
+      padding: 36px;
+      height: fit-content;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1D1D1F;
+    }
+
+    h1 span { color: #007AFF; }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6E6E73;
+      margin-top: 2px;
+      margin-bottom: 24px;
+    }
+
+    /* Input */
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 11px 14px;
+      border: 1.5px solid #E5E5EA;
+      border-radius: 10px;
+      font-size: 15px;
+      background: #F5F5F7;
+      outline: none;
+    }
+
+    .input-row input:focus {
+      border-color: #007AFF;
+      background: white;
+    }
+
+    .input-row input::placeholder { color: #AEAEB2; }
+
+    .btn-add {
+      padding: 11px 20px;
+      background: #007AFF;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-add:hover { background: #0066D6; }
+
+    /* Task list */
+    .task-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: #F5F5F7;
+      border-radius: 10px;
+    }
+
+    .task-item input[type="checkbox"] {
+      width: 17px;
+      height: 17px;
+      accent-color: #34C759;
+      cursor: pointer;
+    }
+
+    .task-text {
+      flex: 1;
+      font-size: 15px;
+      color: #1D1D1F;
+    }
+
+    .task-item.done .task-text {
+      text-decoration: line-through;
+      color: #AEAEB2;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      color: #FF3B30;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .btn-delete:hover { background: rgba(255, 59, 48, 0.1); }
+
+    .empty {
+      text-align: center;
+      padding: 24px 0;
+      color: #AEAEB2;
+      font-size: 14px;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: #F2F2F7;
+      margin: 20px 0;
+    }
+
+    /* Stats */
+    .stats {
+      display: flex;
+      gap: 8px;
+    }
+
+    .stat-box {
+      flex: 1;
+      background: #F5F5F7;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1D1D1F;
+    }
+
+    .stat-box:nth-child(2) .stat-number { color: #34C759; }
+    .stat-box:nth-child(3) .stat-number { color: #FF9F0A; }
+
+    .stat-label {
+      font-size: 11px;
+      color: #6E6E73;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="card">
+
+    <h1>Azelia<span>.</span></h1>
+    <p class="subtitle">Simple Task Manager</p>
+
+    <div class="input-row">
+      <input type="text" id="taskInput" placeholder="Add a new task…" />
+      <button class="btn-add" onclick="addTask()">Add</button>
+    </div>
+
+    <ul class="task-list" id="taskList"></ul>
+
+    <div class="divider"></div>
+
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-number" id="statTotal">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number" id="statDone">0</div>
+        <div class="stat-label">Completed</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number" id="statPending">0</div>
+        <div class="stat-label">Pending</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+
+    let tasks = [];
+    let nextId = 1;
+
+    // Add task when Enter is pressed
+    document.getElementById('taskInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') addTask();
+    });
+
+    function addTask() {
+      const input = document.getElementById('taskInput');
+      const text = input.value.trim();
+      if (text === '') return;
+
+      tasks.push({ id: nextId, text: text, done: false });
+      nextId++;
+      input.value = '';
+      render();
+    }
+
+    function toggleTask(id) {
+      for (let i = 0; i < tasks.length; i++) {
+        if (tasks[i].id === id) {
+          tasks[i].done = !tasks[i].done;
+        }
+      }
+      render();
+    }
+
+    function deleteTask(id) {
+      tasks = tasks.filter(function(t) { return t.id !== id; });
+      render();
+    }
+
+    function render() {
+      const list = document.getElementById('taskList');
+      list.innerHTML = '';
+
+      if (tasks.length === 0) {
+        list.innerHTML = '<div class="empty">No tasks yet. Add one above!</div>';
+      } else {
+        for (let i = 0; i < tasks.length; i++) {
+          const task = tasks[i];
+          const li = document.createElement('li');
+          li.className = task.done ? 'task-item done' : 'task-item';
+          li.innerHTML =
+            '<input type="checkbox" ' + (task.done ? 'checked' : '') + ' onchange="toggleTask(' + task.id + ')">' +
+            '<span class="task-text">' + task.text + '</span>' +
+            '<button class="btn-delete" onclick="deleteTask(' + task.id + ')">✕</button>';
+          list.appendChild(li);
+        }
+      }
+
+      // Update stats
+      let done = 0;
+      for (let i = 0; i < tasks.length; i++) {
+        if (tasks[i].done) done++;
+      }
+      document.getElementById('statTotal').textContent = tasks.length;
+      document.getElementById('statDone').textContent = done;
+      document.getElementById('statPending').textContent = tasks.length - done;
+    }
+
+    render();
+
+  </script>
+
+</body>
+</html>
