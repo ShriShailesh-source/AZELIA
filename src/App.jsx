@@ -568,6 +568,11 @@ export default function Azelia() {
 
   const isTaskView = nav==="All Tasks"||nav==="Today";
   const taskList = nav==="Today" ? tasks.filter(t=>t.dueDate===today()) : filtered;
+  const recentTasks = useMemo(() => {
+    return [...tasks]
+      .sort((a,b)=>Number(a.completed)-Number(b.completed))
+      .slice(0,5);
+  }, [tasks]);
   const todayCount = tasks.filter(t=>t.dueDate===today()).length;
 
   const greeting = new Date().getHours()<12?"Good morning":"Good afternoon";
@@ -684,7 +689,7 @@ export default function Azelia() {
                 <button className="az-view-all" onClick={()=>setNav("All Tasks")}>View all →</button>
               </div>
               <div className="az-task-list">
-                {tasks.slice(0,5).map((t,i)=>(
+                {recentTasks.map((t,i)=>(
                   <TaskCard key={t.id} task={t}
                     onToggle={()=>toggleTask(t.id)} onEdit={()=>setModal(t)} onDelete={()=>deleteTask(t.id)}
                     onDragStart={()=>setDI(i)} onDragOver={()=>setOI(i)} onDrop={()=>handleDrop(i)}
