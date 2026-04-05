@@ -8,12 +8,25 @@
 // 🔵 REACT IMPORTS - Import React hooks and utilities
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import LoginPage from "./LoginPage";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 🟡 JAVASCRIPT UTILITIES - Helper functions (not React)
 // ─────────────────────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 10);
 const today = () => new Date().toISOString().split("T")[0];
+const addDays = (dateString, days) => {
+  const base = dateString ? new Date(`${dateString}T00:00:00`) : new Date();
+  base.setDate(base.getDate() + days);
+  return base.toISOString().split("T")[0];
+};
+const sortPendingFirst = (items) =>
+  [...items].sort((a, b) => Number(a.completed) - Number(b.completed));
+const formatMMSS = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 🟠 DATA CONSTANTS - Static data for the app
@@ -77,7 +90,8 @@ const injectStyles = (dark) => {
   body { background:${bg}; color:${text}; font-family:'Inter',system-ui,sans-serif; min-height:100vh; transition:background .3s,color .3s; -webkit-font-smoothing:antialiased; }
   ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${border};border-radius:99px}
 
-  .az-app{display:flex;min-height:100vh}
+  .az-app{display:flex;min-height:100vh;animation:app-enter .95s cubic-bezier(.16,1,.3,1)}
+  @keyframes app-enter{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   .az-sidebar{width:248px;min-height:100vh;background:${surface};border-right:1px solid ${border};display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;transition:all .3s;z-index:100;flex-shrink:0}
   .az-main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
 
@@ -103,6 +117,7 @@ const injectStyles = (dark) => {
   .az-sidebar-footer-label{font-size:.72rem;font-weight:700;color:${textMuted};display:flex;justify-content:space-between;margin-bottom:.5rem}
   .az-mini-progress-track{height:5px;background:${surface3};border-radius:99px;overflow:hidden}
   .az-mini-progress-fill{height:100%;background:linear-gradient(90deg,${a},#a78bfa);border-radius:99px;transition:width .7s cubic-bezier(.4,0,.2,1)}
+  .az-sidebar-footer:hover .az-mini-progress-fill{animation:progress-breathe 1.8s ease-in-out infinite}
 
   /* Topbar */
   .az-topbar{background:${surface};border-bottom:1px solid ${border};padding:.85rem 1.75rem;display:flex;align-items:center;gap:.9rem;position:sticky;top:0;z-index:90;transition:background .3s}
@@ -120,6 +135,10 @@ const injectStyles = (dark) => {
 
   /* Content */
   .az-content{padding:1.75rem;flex:1;overflow-y:auto}
+  .az-content.az-focus-ambient{position:relative;isolation:isolate}
+  .az-content.az-focus-ambient::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(circle at 25% 20%,${a}1f 0%,transparent 40%),radial-gradient(circle at 80% 75%,#a78bfa1f 0%,transparent 45%);animation:focus-ambient 12s ease-in-out infinite;opacity:.85}
+  @keyframes focus-ambient{0%,100%{filter:hue-rotate(0deg) saturate(1)}50%{filter:hue-rotate(16deg) saturate(1.2)}}
+  .az-content > *{position:relative;z-index:2}
   .az-page-title{font-size:1.5rem;font-weight:900;letter-spacing:-.04em;margin-bottom:.25rem}
   .az-page-sub{font-size:.84rem;color:${textMuted};margin-bottom:1.75rem}
 
@@ -142,6 +161,8 @@ const injectStyles = (dark) => {
   .az-progress-fill{height:100%;background:linear-gradient(90deg,${a},#a78bfa);border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1);position:relative}
   .az-progress-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:6px;background:rgba(255,255,255,.4);border-radius:99px;animation:glow-pulse 1.5s ease-in-out infinite}
   @keyframes glow-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  .az-main-progress:hover .az-progress-fill{animation:progress-breathe 1.6s ease-in-out infinite}
+  @keyframes progress-breathe{0%,100%{filter:saturate(1) brightness(1)}50%{filter:saturate(1.2) brightness(1.08)}}
 
   /* Two-column section */
   .az-two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
@@ -183,18 +204,45 @@ const injectStyles = (dark) => {
 
   /* Task card */
   .az-task-list{display:flex;flex-direction:column;gap:.6rem}
-  .az-task-card{background:${surface};border:1.5px solid ${border};border-radius:14px;padding:.95rem 1.15rem;display:flex;align-items:flex-start;gap:.85rem;transition:all .22s;cursor:grab;position:relative;animation:card-in .2s ease}
+  .az-task-card{background:${surface};border:1.5px solid ${border};border-radius:14px;padding:.95rem 1.15rem;display:flex;align-items:flex-start;gap:.85rem;transition:all .24s cubic-bezier(.4,0,.2,1);cursor:grab;position:relative;animation:card-in .2s ease}
   .az-task-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3.5px;background:var(--pc,${border});border-radius:14px 0 0 14px}
-  .az-task-card:hover{border-color:${dark?"#373c5e":"#c5cde0"};transform:translateX(4px);box-shadow:0 4px 20px ${dark?"#0003":"#0001"}}
+  .az-task-card:hover{border-color:${dark?"#373c5e":"#c5cde0"};transform:translateX(4px) translateY(-2px);box-shadow:0 10px 28px ${dark?"#0005":"#6c63ff1f"}}
   .az-task-card.dragging{opacity:.45;transform:scale(.98);cursor:grabbing}
   .az-task-card.drag-over{border-color:${a};box-shadow:0 0 0 2.5px ${a}2a;background:${a}08}
+  .az-task-card.focused{border-color:${a}66;box-shadow:0 0 0 2px ${a}22,0 12px 28px ${a}22}
+  .az-app.focus-mode .az-task-card:not(.focused){opacity:.35;filter:blur(.7px) saturate(.75);transform:scale(.99)}
+  .az-app.focus-mode .az-sidebar,.az-app.focus-mode .az-topbar,.az-app.focus-mode .az-main-progress,.az-app.focus-mode .az-stats,.az-app.focus-mode .az-two-col,.az-app.focus-mode .az-card:not(.az-focus-strip){opacity:.45;transition:opacity .35s ease}
+  .az-app.focus-mode .az-task-list{position:relative;z-index:4}
+  .az-focus-strip{display:flex;align-items:center;gap:.55rem;background:linear-gradient(135deg,${a}22,#a78bfa18);border:1.5px solid ${a}3d;border-radius:13px;padding:.62rem .85rem;margin-bottom:.85rem;font-size:.8rem;font-weight:700;color:${text}}
+  .az-focus-strip strong{font-size:.84rem}
+  .az-focus-pomo-chip{margin-left:auto;font-size:.72rem;font-weight:800;padding:.2rem .5rem;border-radius:99px;background:${a}22;color:${a};border:1px solid ${a}3a}
+  .az-task-card.priority-Critical{box-shadow:0 0 0 1px #ef444433,0 8px 20px #ef44441f;animation:critical-pulse 2.4s ease-in-out infinite}
+  .az-task-card.priority-Low{opacity:.95;filter:saturate(.92)}
+  @keyframes critical-pulse{0%,100%{box-shadow:0 0 0 1px #ef444433,0 8px 20px #ef44441f}50%{box-shadow:0 0 0 1px #ef444466,0 10px 28px #ef444433}}
   .az-task-card.done .az-task-title{text-decoration:line-through;color:${textMuted};opacity:.65}
   @keyframes card-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .az-swipe-hint{position:absolute;top:50%;transform:translateY(-50%);font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;pointer-events:none;opacity:0;transition:opacity .14s}
+  .az-swipe-hint.right{left:.75rem;color:#22c55e}
+  .az-swipe-hint.left{right:.75rem;color:#f59e0b}
 
-  .az-checkbox{width:20px;height:20px;border-radius:6px;border:2px solid ${border};flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:2px}
+  .az-check-wrap{position:relative;display:flex;align-items:center;justify-content:center;margin-top:2px;flex-shrink:0}
+  .az-checkbox{width:20px;height:20px;border-radius:6px;border:2px solid ${border};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .22s cubic-bezier(.34,1.56,.64,1);transform-origin:center}
   .az-checkbox:hover{border-color:${a};background:${a}14}
   .az-checkbox.on{background:${a};border-color:${a}}
-  .az-checkbox.on::after{content:'✓';color:#fff;font-size:.72rem;font-weight:800}
+  .az-checkbox-mark{width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) scale(0);opacity:0;transition:transform .2s cubic-bezier(.34,1.56,.64,1),opacity .15s ease}
+  .az-checkbox.on .az-checkbox-mark{transform:rotate(45deg) scale(1);opacity:1}
+  .az-checkbox.celebrate{animation:checkbox-pop .32s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes checkbox-pop{0%{transform:scale(1)}35%{transform:scale(1.28)}100%{transform:scale(1)}}
+  .az-confetti{position:absolute;inset:0;pointer-events:none}
+  .az-confetti i{position:absolute;left:50%;top:50%;width:5px;height:9px;border-radius:2px;background:var(--c,${a});transform:translate(-50%,-50%) rotate(var(--r,0deg));opacity:0;animation:confetti-burst .65s ease-out forwards;animation-delay:var(--d,0ms)}
+  @keyframes confetti-burst{0%{opacity:1;transform:translate(-50%,-50%) rotate(var(--r,0deg)) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--x,0px)),calc(-50% + var(--y,0px))) rotate(calc(var(--r,0deg) + 90deg)) scale(.6)}}
+  .az-pomo-wrap{position:absolute;inset:-9px;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .az-pomo-ring{width:38px;height:38px;transform:rotate(-90deg)}
+  .az-pomo-ring-bg{fill:none;stroke:${border};stroke-width:4;opacity:.7}
+  .az-pomo-ring-fg{fill:none;stroke:${a};stroke-width:4;stroke-linecap:round;transition:stroke-dashoffset .35s ease}
+  .az-pomo-ring-pulse{animation:pomo-pulse 2.2s ease-in-out infinite}
+  @keyframes pomo-pulse{0%,100%{filter:drop-shadow(0 0 0 ${a}00)}50%{filter:drop-shadow(0 0 7px ${a}88)}}
+  .az-pomo-mini{font-size:.7rem;font-weight:800;color:${a};background:${a}14;border:1px solid ${a}33;padding:.12rem .4rem;border-radius:99px}
 
   .az-task-body{flex:1;min-width:0}
   .az-task-title{font-size:.89rem;font-weight:700;margin-bottom:.18rem;line-height:1.35}
@@ -248,6 +296,22 @@ const injectStyles = (dark) => {
 
   /* Priority badge (details, used in analytics) */
   .az-pri-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:800;padding:.2rem .55rem;border-radius:99px;border:1px solid}
+
+  /* Login */
+  .az-login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:radial-gradient(circle at 20% 20%,${a}22 0%,transparent 38%),radial-gradient(circle at 80% 80%,#a78bfa22 0%,transparent 42%);animation:login-bg-in .9s cubic-bezier(.22,1,.36,1)}
+  .az-login-card{width:100%;max-width:420px;background:${surface};border:1.5px solid ${border};border-radius:20px;padding:1.6rem;box-shadow:0 24px 60px ${dark?"#0007":"#6c63ff1f"};display:flex;flex-direction:column;gap:.6rem;opacity:0;transform:translateY(20px) scale(.978);animation:login-card-in 1.2s cubic-bezier(.16,1,.3,1) .12s forwards;transition:transform .58s cubic-bezier(.22,1,.36,1),box-shadow .58s cubic-bezier(.22,1,.36,1),border-color .58s cubic-bezier(.22,1,.36,1)}
+  .az-login-card:hover{transform:translateY(-2px);box-shadow:0 28px 68px ${dark?"#0008":"#6c63ff24"}}
+  .az-login-brand{display:flex;align-items:center;gap:.85rem;margin-bottom:.4rem}
+  .az-login-icon{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,${a},#a78bfa);display:flex;align-items:center;justify-content:center;font-size:1.15rem;box-shadow:${glow};flex-shrink:0}
+  .az-login-title{font-size:1.28rem;font-weight:900;letter-spacing:-.03em;background:linear-gradient(90deg,${a},#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .az-login-sub{font-size:.8rem;color:${textMuted};font-weight:600}
+  .az-login-error{font-size:.78rem;color:#ef4444;background:#ef444414;border:1px solid #ef444444;border-radius:10px;padding:.5rem .7rem;margin:.2rem 0 .1rem}
+  .az-login-submit{margin-top:.35rem}
+  .az-login-theme{position:fixed;top:1rem;right:1rem}
+  .az-login-remember{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:${textMuted};font-weight:600;user-select:none;margin-top:.1rem}
+  .az-login-remember input{accent-color:${a};width:15px;height:15px}
+  @keyframes login-bg-in{from{opacity:0}to{opacity:1}}
+  @keyframes login-card-in{from{opacity:0;transform:translateY(20px) scale(.978)}to{opacity:1;transform:none}}
 
   @media(max-width:1100px){.az-stats{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:900px){.az-two-col{grid-template-columns:1fr}}
@@ -400,10 +464,10 @@ function TaskModal({task, onSave, onClose}) {
         <div className="az-modal-footer">
           <button className="az-btn-cancel" onClick={onClose}>Cancel</button>
           <button className="az-btn-save" onClick={submit}>
-            {task?"💾 Save Changes":"➕ Add Task"}
+            {task?"💾1   Save Changes":"➕ Add Task"}
           </button>
         </div>
-      </div>
+      </div> 
     </div>
   );
 }
@@ -411,14 +475,72 @@ function TaskModal({task, onSave, onClose}) {
 // 🔵 REACT COMPONENT #5: TaskCard
 // Individual task card with drag-and-drop support
 // Shows title, description, tags (priority, category, date), and action buttons
-function TaskCard({task, onToggle, onEdit, onDelete, onDragStart, onDragOver, onDrop, isDragging, isDragOver}) {
+function TaskCard({task, onToggle, onEdit, onSnooze, onFocus, onPomodoroToggle, onPomodoroReset, pomodoroEnabled, pomodoroRunning, pomodoroLabel, pomodoroProgress, onDragStart, onDragOver, onDrop, isDragging, isDragOver, celebrate}) {
+  const touchStartRef = useRef(null);1234567  
+  
+  const [swipeX, setSwipeX] = useState(0);
   const pc = PRIORITY_COLOR[task.priority];
   const isOverdue = !task.completed && task.dueDate && task.dueDate < today();
+  const rightOpacity = Math.max(0, swipeX) / 80;
+  const leftOpacity = Math.max(0, -swipeX) / 80;
+
+  const onTouchStart = (event) => {
+    touchStartRef.current = event.touches[0].clientX;
+  };
+
+  const onTouchMove = (event) => {
+    if (touchStartRef.current === null) return;
+    const delta = event.touches[0].clientX - touchStartRef.current;
+    const clamped = Math.max(-90, Math.min(90, delta));
+    setSwipeX(clamped);
+  };
+
+  const onTouchEnd = () => {
+    if (swipeX > 70 && !task.completed) onToggle();
+    if (swipeX < -70) onSnooze();
+    setSwipeX(0);
+    touchStartRef.current = null;
+  };
+
   return (
-    <div className={`az-task-card ${task.completed?"done":""} ${isDragging?"dragging":""} ${isDragOver?"drag-over":""}`}
-      style={{"--pc":pc.border}}
-      draggable onDragStart={onDragStart} onDragOver={e=>{e.preventDefault();onDragOver();}} onDrop={onDrop}>
-      <div className={`az-checkbox ${task.completed?"on":""}`} onClick={onToggle}/>
+    <div className={`az-task-card priority-${task.priority} ${task.completed?"done":""} ${task.focused?"focused":""} ${isDragging?"dragging":""} ${isDragOver?"drag-over":""}`}
+      style={{"--pc":pc.border, transform: swipeX ? `translateX(${swipeX}px)` : undefined}}
+      draggable onDragStart={onDragStart} onDragOver={e=>{e.preventDefault();onDragOver();}} onDrop={onDrop}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <div className="az-swipe-hint right" style={{opacity:rightOpacity}}>✓ Complete</div>
+      <div className="az-swipe-hint left" style={{opacity:leftOpacity}}>⏰ Snooze</div>
+      <div className="az-check-wrap">
+        {task.focused && pomodoroEnabled && (
+          <div className="az-pomo-wrap" aria-hidden="true">
+            <svg className={`az-pomo-ring ${pomodoroRunning ? "az-pomo-ring-pulse" : ""}`} viewBox="0 0 42 42">
+              <circle className="az-pomo-ring-bg" cx="21" cy="21" r="16"/>
+              <circle
+                className="az-pomo-ring-fg"
+                cx="21"
+                cy="21"
+                r="16"
+                strokeDasharray={100.53}
+                strokeDashoffset={100.53 * (1 - pomodoroProgress)}
+              />
+            </svg>
+          </div>
+        )}
+        <div className={`az-checkbox ${task.completed?"on":""} ${celebrate?"celebrate":""}`} onClick={onToggle}>
+          <span className="az-checkbox-mark"/>
+        </div>
+        {celebrate && (
+          <div className="az-confetti" aria-hidden="true">
+            <i style={{"--x":"-2px","--y":"-24px","--r":"0deg","--d":"0ms","--c":"#6c63ff"}}/>
+            <i style={{"--x":"14px","--y":"-18px","--r":"24deg","--d":"20ms","--c":"#22c55e"}}/>
+            <i style={{"--x":"20px","--y":"-6px","--r":"42deg","--d":"35ms","--c":"#f59e0b"}}/>
+            <i style={{"--x":"16px","--y":"10px","--r":"66deg","--d":"10ms","--c":"#a78bfa"}}/>
+            <i style={{"--x":"0px","--y":"16px","--r":"95deg","--d":"25ms","--c":"#38bdf8"}}/>
+            <i style={{"--x":"-14px","--y":"10px","--r":"126deg","--d":"50ms","--c":"#ef4444"}}/>
+            <i style={{"--x":"-18px","--y":"-5px","--r":"150deg","--d":"15ms","--c":"#f97316"}}/>
+            <i style={{"--x":"-12px","--y":"-18px","--r":"180deg","--d":"40ms","--c":"#6c63ff"}}/>
+          </div>
+        )}
+      </div>
       <div className="az-task-body">
         <div className="az-task-title">{task.title}</div>
         {task.description && <div className="az-task-desc">{task.description}</div>}
@@ -434,11 +556,26 @@ function TaskCard({task, onToggle, onEdit, onDelete, onDragStart, onDragOver, on
               {isOverdue?"⚠️":"📅"} {task.dueDate}
             </span>
           )}
+          {task.focused && (
+            <span className="az-tag" style={{background:"#6c63ff1a",color:"#6c63ff",borderColor:"#6c63ff55"}}>
+              ⭐ Focus
+            </span>
+          )}
+          {task.focused && pomodoroEnabled && (
+            <span className="az-pomo-mini">🍅 {pomodoroLabel}</span>
+          )}
         </div>
       </div>
       <div className="az-task-actions">
         <button className="az-act-btn" onClick={onEdit} title="Edit">✏️</button>
-        <button className="az-act-btn del" onClick={onDelete} title="Delete">🗑️</button>
+        <button className="az-act-btn" onClick={onSnooze} title="Snooze">⏰</button>
+        <button className="az-act-btn" onClick={onFocus} title="Focus">⭐</button>
+        {task.focused && (
+          <>
+            <button className="az-act-btn" onClick={onPomodoroToggle} title="Toggle Pomodoro">{pomodoroRunning?"⏸️":"🍅"}</button>
+            <button className="az-act-btn" onClick={onPomodoroReset} title="Reset Pomodoro">↺</button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -467,6 +604,9 @@ function Toasts({items}) {
 //   - Dynamic CSS injection
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Azelia() {
+  const USER_KEY = "azelia_user";
+  const USER_SESSION_KEY = "azelia_user_session";
+  const POMODORO_SECONDS = 25 * 60;
   // ┌─────────────────────────────────────────────────────────────────────────┐
   // │ 🔵 REACT HOOKS - State management using React's useState hook          │
   // │ Format: const [variable, setVariable] = useState(initialValue)           │
@@ -491,6 +631,22 @@ export default function Azelia() {
   const [toasts, setToasts]  = useState([]);
   const [dragIdx, setDI]     = useState(null);
   const [overIdx, setOI]     = useState(null);
+  const [celebrating, setCelebrating] = useState({});
+  const [fxOn, setFxOn]      = useState(()=>{
+    try{return JSON.parse(localStorage.getItem("azelia_fx")??"true")}catch{return true}
+  });
+  const [user, setUser]      = useState(()=>{
+    try {
+      const sessionUser = JSON.parse(sessionStorage.getItem(USER_SESSION_KEY) ?? "null");
+      if (sessionUser) return sessionUser;
+      return JSON.parse(localStorage.getItem(USER_KEY) ?? "null");
+    }
+    catch { return null; }
+  });
+  const [loginError, setLoginError] = useState("");
+  const [pomodoroEnabled, setPomodoroEnabled] = useState(false);
+  const [pomodoroRunning, setPomodoroRunning] = useState(false);
+  const [pomodoroLeft, setPomodoroLeft] = useState(POMODORO_SECONDS);
 
   useEffect(()=>{ injectStyles(dark); },[dark]);
   useEffect(()=>{
@@ -499,12 +655,67 @@ export default function Azelia() {
   useEffect(()=>{
     try{ localStorage.setItem("azelia_dark",JSON.stringify(dark)); }catch{}
   },[dark]);
-
+  useEffect(()=>{
+    try{ localStorage.setItem("azelia_fx",JSON.stringify(fxOn)); }catch{}
+  },[fxOn]);
   const toast = useCallback((msg,icon="✅")=>{
     const id=uid();
     setToasts(t=>[...t,{id,msg,icon}]);
     setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),2600);
   },[]);
+
+  const playCelebrate = useCallback(() => {
+    if (!fxOn) return;
+    try {
+      const Context = window.AudioContext || window.webkitAudioContext;
+      if (!Context) return;
+      const ctx = new Context();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(620, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.18);
+      setTimeout(() => ctx.close(), 220);
+    } catch {}
+  }, [fxOn]);
+
+  const handleLogin = useCallback((email, password, rememberMe) => {
+    if (!email || password.length < 4) {
+      setLoginError("Enter a valid email and at least 4 characters for password.");
+      return;
+    }
+    const userData = {
+      email,
+      name: email.split("@")[0] || "User",
+    };
+    try {
+      if (rememberMe) {
+        localStorage.setItem(USER_KEY, JSON.stringify(userData));
+        sessionStorage.removeItem(USER_SESSION_KEY);
+      } else {
+        sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(userData));
+        localStorage.removeItem(USER_KEY);
+      }
+    } catch {}
+    setLoginError("");
+    setUser(userData);
+  }, [USER_KEY, USER_SESSION_KEY]);
+
+  const handleLogout = useCallback(() => {
+    try {
+      localStorage.removeItem(USER_KEY);
+      sessionStorage.removeItem(USER_SESSION_KEY);
+    } catch {}
+    setUser(null);
+    setLoginError("");
+  }, [USER_KEY, USER_SESSION_KEY]);
 
   const total     = tasks.length;
   const completed = tasks.filter(t=>t.completed).length;
@@ -520,6 +731,20 @@ export default function Azelia() {
         &&(fCat==="All"||t.category===fCat)
         &&(fPri==="All"||t.priority===fPri);
     }),[tasks,search,fStatus,fCat,fPri]);
+
+  const orderedFiltered = useMemo(() => sortPendingFirst(filtered), [filtered]);
+  const orderedToday = useMemo(
+    () => sortPendingFirst(tasks.filter(t => t.dueDate === today())),
+    [tasks]
+  );
+  const recentTasks = useMemo(() => sortPendingFirst(tasks).slice(0,5), [tasks]);
+  const focusedTask = useMemo(() => tasks.find(t => t.focused), [tasks]);
+  const isFocusMode = Boolean(focusedTask);
+  const pomodoroProgress = useMemo(
+    () => Math.max(0, Math.min(1, (POMODORO_SECONDS - pomodoroLeft) / POMODORO_SECONDS)),
+    [POMODORO_SECONDS, pomodoroLeft]
+  );
+  const pomodoroLabel = useMemo(() => formatMMSS(pomodoroLeft), [pomodoroLeft]);
 
   const catCounts = useMemo(()=>
     CATEGORIES.reduce((a,c)=>({...a,[c]:tasks.filter(t=>t.category===c).length}),{}),[tasks]);
@@ -539,11 +764,60 @@ export default function Azelia() {
     toast("Task removed.","🗑️");
   },[toast]);
 
+  const snoozeTask = useCallback(id=>{
+    setTasks(t=>t.map(x=>x.id===id?{...x,dueDate:addDays(x.dueDate||today(),1)}:x));
+    toast("Task snoozed to tomorrow.","⏰");
+  },[toast]);
+
+  const focusTask = useCallback(id=>{
+    const isSameFocused = focusedTask?.id === id;
+    setTasks(t=>t.map(x=>x.id===id?{...x,focused:!isSameFocused}:{...x,focused:false}));
+    if (isSameFocused) {
+      setPomodoroEnabled(false);
+      setPomodoroRunning(false);
+      setPomodoroLeft(POMODORO_SECONDS);
+      toast("Focus mode off.","🌙");
+    } else {
+      setNav("All Tasks");
+      toast("Focus mode on.","🎯");
+    }
+  },[focusedTask?.id, POMODORO_SECONDS, toast]);
+
+  const togglePomodoro = useCallback(() => {
+    if (!focusedTask) return;
+    setPomodoroEnabled(true);
+    setPomodoroRunning(v => !v);
+  }, [focusedTask]);
+
+  const resetPomodoro = useCallback(() => {
+    setPomodoroEnabled(false);
+    setPomodoroRunning(false);
+    setPomodoroLeft(POMODORO_SECONDS);
+  }, [POMODORO_SECONDS]);
+
+  const triggerCelebrate = useCallback((id) => {
+    setCelebrating(prev => ({ ...prev, [id]: true }));
+    setTimeout(() => {
+      setCelebrating(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }, 700);
+  }, []);
+
   const toggleTask = useCallback(id=>{
+    const t = tasks.find(item => item.id === id);
+    const becameDone = Boolean(t && !t.completed);
     setTasks(t=>t.map(x=>x.id===id
       ?{...x,completed:!x.completed,completedAt:!x.completed?new Date().toISOString():undefined}
       :x));
-  },[]);
+    if (becameDone) {
+      triggerCelebrate(id);
+      if (fxOn && navigator?.vibrate) navigator.vibrate(22);
+      playCelebrate();
+    }
+  },[tasks, fxOn, playCelebrate, triggerCelebrate]);
 
   const handleDrop = useCallback(dropI=>{
     if(dragIdx===null||dragIdx===dropI)return;
@@ -567,18 +841,50 @@ export default function Azelia() {
   ];
 
   const isTaskView = nav==="All Tasks"||nav==="Today";
-  const taskList = nav==="Today" ? tasks.filter(t=>t.dueDate===today()) : filtered;
-  const recentTasks = useMemo(() => {
-    return [...tasks]
-      .sort((a,b)=>Number(a.completed)-Number(b.completed))
-      .slice(0,5);
-  }, [tasks]);
-  const todayCount = tasks.filter(t=>t.dueDate===today()).length;
+  const taskList = nav==="Today" ? orderedToday : orderedFiltered;
+  const todayCount = orderedToday.length;
 
   const greeting = new Date().getHours()<12?"Good morning":"Good afternoon";
 
+  useEffect(() => {
+    if (!focusedTask) {
+      setPomodoroEnabled(false);
+      setPomodoroRunning(false);
+      setPomodoroLeft(POMODORO_SECONDS);
+    }
+  }, [focusedTask, POMODORO_SECONDS]);
+
+  useEffect(() => {
+    if (!focusedTask || !pomodoroEnabled || !pomodoroRunning) return;
+    const timer = window.setInterval(() => {
+      setPomodoroLeft(prev => {
+        if (prev <= 1) {
+          window.clearInterval(timer);
+          setPomodoroRunning(false);
+          toast("Pomodoro complete! Great focus session.", "🍅");
+          if (fxOn && navigator?.vibrate) navigator.vibrate([40, 20, 40]);
+          playCelebrate();
+          return POMODORO_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [focusedTask, pomodoroEnabled, pomodoroRunning, toast, fxOn, playCelebrate, POMODORO_SECONDS]);
+
+  if (!user) {
+    return (
+      <LoginPage
+        dark={dark}
+        onToggleTheme={() => setDark((value) => !value)}
+        onLogin={handleLogin}
+        error={loginError}
+      />
+    );
+  }
+
   return (
-    <div className="az-app">
+    <div className={`az-app ${isFocusMode?"focus-mode":""}`}>
       {/* Sidebar */}
       <aside className="az-sidebar">
         <div className="az-brand">
@@ -628,13 +934,27 @@ export default function Azelia() {
             <button className="az-icon-btn" onClick={()=>setDark(d=>!d)} title="Toggle theme">
               {dark?"☀️":"🌙"}
             </button>
+            <button className="az-icon-btn" onClick={()=>setFxOn(v=>!v)} title="Toggle sound & haptic">
+              {fxOn?"🔔":"🔕"}
+            </button>
+            <button className="az-icon-btn" onClick={handleLogout} title="Sign out">
+              ↩️
+            </button>
             <button className="az-new-btn" onClick={()=>setModal("new")}>＋ New Task</button>
-            <div className="az-avatar">A</div>
+            <div className="az-avatar">{(user?.name?.[0] || "A").toUpperCase()}</div>
           </div>
         </header>
 
         {/* Page content */}
-        <div className="az-content">
+        <div className={`az-content ${isFocusMode?"az-focus-ambient":""}`}>
+
+          {isFocusMode && (
+            <div className="az-focus-strip az-card">
+              <span>🎯 Focus Mode</span>
+              <strong>{focusedTask.title}</strong>
+              {pomodoroEnabled && <span className="az-focus-pomo-chip">🍅 {pomodoroLabel}</span>}
+            </div>
+          )}
 
           {/* ── Dashboard ── */}
           {nav==="Dashboard"&&(
@@ -691,9 +1011,12 @@ export default function Azelia() {
               <div className="az-task-list">
                 {recentTasks.map((t,i)=>(
                   <TaskCard key={t.id} task={t}
-                    onToggle={()=>toggleTask(t.id)} onEdit={()=>setModal(t)} onDelete={()=>deleteTask(t.id)}
+                    onToggle={()=>toggleTask(t.id)} onEdit={()=>setModal(t)} onSnooze={()=>snoozeTask(t.id)} onFocus={()=>focusTask(t.id)}
+                    onPomodoroToggle={togglePomodoro} onPomodoroReset={resetPomodoro}
+                    pomodoroEnabled={pomodoroEnabled} pomodoroRunning={pomodoroRunning}
+                    pomodoroLabel={pomodoroLabel} pomodoroProgress={pomodoroProgress}
                     onDragStart={()=>setDI(i)} onDragOver={()=>setOI(i)} onDrop={()=>handleDrop(i)}
-                    isDragging={dragIdx===i} isDragOver={overIdx===i}/>
+                    isDragging={dragIdx===i} isDragOver={overIdx===i} celebrate={Boolean(celebrating[t.id])}/>
                 ))}
               </div>
             </>
@@ -750,9 +1073,12 @@ export default function Azelia() {
                   </div>
                 ):taskList.map((t,i)=>(
                   <TaskCard key={t.id} task={t}
-                    onToggle={()=>toggleTask(t.id)} onEdit={()=>setModal(t)} onDelete={()=>deleteTask(t.id)}
+                    onToggle={()=>toggleTask(t.id)} onEdit={()=>setModal(t)} onSnooze={()=>snoozeTask(t.id)} onFocus={()=>focusTask(t.id)}
+                    onPomodoroToggle={togglePomodoro} onPomodoroReset={resetPomodoro}
+                    pomodoroEnabled={pomodoroEnabled} pomodoroRunning={pomodoroRunning}
+                    pomodoroLabel={pomodoroLabel} pomodoroProgress={pomodoroProgress}
                     onDragStart={()=>setDI(i)} onDragOver={()=>setOI(i)} onDrop={()=>handleDrop(i)}
-                    isDragging={dragIdx===i} isDragOver={overIdx===i}/>
+                    isDragging={dragIdx===i} isDragOver={overIdx===i} celebrate={Boolean(celebrating[t.id])}/>
                 ))}
               </div>
             </>
